@@ -1,0 +1,156 @@
+A. CREATE TABLES IN HIVE
+
+CREATE TABLE customer_info (
+  cust_id STRING,
+  cust_name STRING,
+  order_id STRING
+)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ','
+STORED AS TEXTFILE;
+
+--------------------------------------
+
+CREATE TABLE order_info (
+  order_id STRING,
+  item_id STRING,
+  quantity INT
+)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ','
+STORED AS TEXTFILE;
+
+-------------------------------------
+
+CREATE TABLE item_info (
+  item_id STRING,
+  item_name STRING,
+  item_price FLOAT
+)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ','
+STORED AS TEXTFILE;
+
+-------------------------------------
+TRUNCATE TABLE your_table_name;
+-------------------------------------
+
+B. CREATE CSV FILES (ON DESKTOP) FOR THESE TABLES & LOAD DATE INTO TABLES
+(no spaces between values and commas)
+
+
+LOAD DATA LOCAL INPATH '/home/cloudera/Desktop/customer_info.csv' INTO TABLE customer_info;
+LOAD DATA LOCAL INPATH '/home/cloudera/Desktop/order_info.csv' INTO TABLE order_info;
+LOAD DATA LOCAL INPATH '/home/cloudera/Desktop/item_info.csv' INTO TABLE item_info;
+
+--------------------------------------
+
+C. JOIN THE TABLES
+
+SELECT 
+  c.cust_id,
+  c.cust_name,
+  o.order_id,
+  o.item_id,
+  o.quantity,
+  i.item_name,
+  i.item_price
+FROM
+  customer_info c
+LEFT JOIN 
+  order_info o ON c.order_id = o.order_id
+LEFT JOIN 
+  item_info i ON o.item_id = i.item_id;
+
+--------------------------------------
+
+D. CREATE INDEX ON cust_id FOR customer_info TABLE
+
+>> CREATE INDEX idx_cust_id ON TABLE customer_info (cust_id)
+AS 'COMPACT'
+WITH DEFERRED REBUILD;
+
+>> ALTER INDEX idx_cust_id ON customer_info REBUILD;
+
+------------------------------------
+
+E. TOTAL & AVG SALES
+
+SELECT SUM(o.quantity * i.item_price) AS total_sales
+FROM order_info o
+JOIN item_info i ON o.item_id = i.item_id;
+
+SELECT AVG(o.quantity * i.item_price) AS avg_sales
+FROM order_info o
+JOIN item_info i ON o.item_id = i.item_id;
+
+-----------------------------------
+
+F. ORDER DETAILS WITH MAX COST
+
+SELECT o.order_id, o.item_id, o.quantity, i.item_name, i.item_price,
+       (o.quantity * i.item_price) AS total_cost
+FROM order_info o
+JOIN item_info i ON o.item_id = i.item_id
+ORDER BY total_cost DESC
+LIMIT 1;
+
+-----------------------------------
+
+G. CREATE HBASE TABLE FOR CUSTOMER 
+
+create 'hbase_customer_info', 'info'
+put 'hbase_customer_info', 'C001', 'info:cust_name', 'John'
+put 'hbase_customer_info', 'C001', 'info:order_id', 'ORD001'
+put 'hbase_customer_info', 'C002', 'info:cust_name', 'Kamal'
+put 'hbase_customer_info', 'C002', 'info:order_id', 'ORD002'
+put 'hbase_customer_info', 'C003', 'info:cust_name', 'Lando'
+put 'hbase_customer_info', 'C003', 'info:order_id', 'ORD003'
+
+AND CONNECT IT TO AN EXTERNAL HIVE TABLE
+
+CREATE EXTERNAL TABLE hbase_customer (
+  key STRING,
+  cust_name STRING,
+  order_id STRING
+)
+STORED BY 'org.apache.hadoop.hive.hbase.HBaseStorageHandler'
+WITH SERDEPROPERTIES ("hbase.columns.mapping" = ":key,info:cust_name,info:order_id")
+TBLPROPERTIES ("hbase.table.name" = "hbase_customer_info");
+
+
+------------------------------------
+
+H. VIEW RECORDS IN HIVE
+
+SELECT * FROM hbase_customer;
+
+
+
+------------------------------------------------------------------------------------------------
+
+customer_info.csv
+
+001,ALICE,101
+002,BOB,102
+003,CHARLIE,103
+004,DIANA,104
+005,ETHAN,105
+006,FIONA,106
+
+order_info.csv
+
+101,1,2
+102,2,1
+103,3,1
+104,4,2
+105,5,1
+106,1,2
+
+item_info.csv
+
+1,Book,60
+2,Pen,100
+3,Paper,40
+4,Stapler,120
+5,Gum,10

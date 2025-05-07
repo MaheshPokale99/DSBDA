@@ -1,0 +1,116 @@
+A) PUT THE ONLINERETAIL.CSV FILE ON HADOOP FROM DESKTOP
+
+hdfs dfs -mkdir -p /user/hive
+hdfs dfs -put Desktop/onlineretail.csv /user/hive
+
+A) CREATE HIVE TABLE ON ONLINE RETAIL DATASET
+
+CREATE TABLE online_retail (
+  InvoiceNo STRING,
+  StockCode STRING,
+  Description STRING,
+  Quantity INT,
+  InvoiceDate STRING,
+  UnitPrice DOUBLE,
+  CustomerID STRING,
+  Country STRING
+)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ','
+STORED AS TEXTFILE;
+
+A) LOAD DATA ON TABLE
+
+LOAD DATA LOCAL INPATH '/home/cloudera/Desktop/onlineretail.csv' INTO TABLE online_retail;
+
+
+B) CREATING INDEX
+
+>>CREATE INDEX idx_invoice ON TABLE online_retail (InvoiceNo)
+AS 'COMPACT'
+WITH DEFERRED REBUILD;
+
+>>ALTER INDEX idx_invoice ON online_retail REBUILD;
+
+>>SHOW INDEXES ON online_retail;
+
+C) TOTAL AND AVG SALES
+
+SELECT 
+  SUM(Quantity * UnitPrice) AS total_sales,
+  AVG(Quantity * UnitPrice) AS average_sales
+FROM online_retail;
+
+D) MAX COST ORDER
+
+SELECT InvoiceNo, SUM(Quantity * UnitPrice) AS order_total
+FROM online_retail
+GROUP BY InvoiceNo
+ORDER BY order_total DESC
+LIMIT 1;
+
+E) MAX ORDER TOTAL CUSTOMER
+
+SELECT CustomerID, SUM(Quantity * UnitPrice) AS customer_total
+FROM online_retail
+GROUP BY CustomerID
+ORDER BY customer_total DESC
+LIMIT 1;
+
+F) COUNTRY WITH MAX AND MIN SALE
+
+SELECT Country, SUM(Quantity * UnitPrice) AS total_sale
+FROM online_retail
+GROUP BY Country
+ORDER BY total_sale DESC
+LIMIT 1;
+
+SELECT Country, SUM(Quantity * UnitPrice) AS total_sale
+FROM online_retail
+GROUP BY Country
+ORDER BY total_sale ASC
+LIMIT 1;
+
+G) CREATE HBASE TABLE
+
+>>hbase shell
+>>create 'online_retail', 'cf'
+
+put 'online_retail', '536365_85123A', 'cf:InvoiceNo', '536365'
+put 'online_retail', '536365_85123A', 'cf:StockCode', '85123A'
+put 'online_retail', '536365_85123A', 'cf:Description', 'WHITE HANGING HEART T-LIGHT HOLDER'
+put 'online_retail', '536365_85123A', 'cf:Quantity', '6'
+put 'online_retail', '536365_85123A', 'cf:InvoiceDate', '01-12-2010 08:26'
+put 'online_retail', '536365_85123A', 'cf:UnitPrice', '2.55'
+put 'online_retail', '536365_85123A', 'cf:CustomerID', '17850'
+put 'online_retail', '536365_85123A', 'cf:Country', 'United Kingdom'
+
+
+G) CREATE EXTERNAL TABLE FOR IT IN HIVE
+
+CREATE EXTERNAL TABLE retail_hive_view (
+  rowkey STRING,
+  InvoiceNo STRING,
+  StockCode STRING,
+  Description STRING,
+  Quantity INT,
+  InvoiceDate STRING,
+  UnitPrice DOUBLE,
+  CustomerID STRING,
+  Country STRING
+)
+STORED BY 'org.apache.hadoop.hive.hbase.HBaseStorageHandler'
+WITH SERDEPROPERTIES (
+  "hbase.columns.mapping" = ":key,cf:InvoiceNo,cf:StockCode,cf:Description,cf:Quantity,cf:InvoiceDate,cf:UnitPrice,cf:CustomerID,cf:Country"
+)
+TBLPROPERTIES (
+  "hbase.table.name" = "online_retail"
+);
+
+
+H) SHOW ALL ROWS IN HIVE OF HBASE TABLE
+
+SELECT * FROM retail_hive_view
+
+
+

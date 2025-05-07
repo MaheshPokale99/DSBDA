@@ -1,0 +1,87 @@
+GO TO HBASE
+>>hbase shell
+
+A) CREATE HBASE TABLE
+
+create 'flight_info', 'details', 'schedule', 'delay'
+
+B) ADD A ROW IN IT
+
+put 'flight_info', 'FL002', 'details:name', 'airindia'
+put 'flight_info', 'FL002', 'details:depart', 'delhi'
+put 'flight_info', 'FL002', 'details:arrive', 'kolkata'
+put 'flight_info', 'FL002', 'schedule:dtime', '11:00pm'
+put 'flight_info', 'FL002', 'schedule:atime', '1:00am'
+put 'flight_info', 'FL002', 'delay:depart', '25'
+
+VIEW A HBASE TABLE
+
+scan 'flight_info'
+
+VIEW THE TABLE COLUMN-FAMILIES
+
+describe 'flight_info'
+
+B) ALTER A TABLE (ADD A FAMILY)
+
+alter 'flight_info', NAME => 'status'
+
+B) ALTER A TABLE (DELETE A FAMILY)
+
+alter 'flight_info',{NAME => 'status', METHOD => 'delete'}
+
+B) DROP A HBASE TABLE (FIRST DISABLE IT)
+
+disable 'flight_info'
+drop 'flight_info'
+
+
+-------------------------------------------------------------------------------
+GO TO HIVE
+>>hive
+
+C) CREATE HIVE TABLE FOR HBASE TABLE
+
+CREATE EXTERNAL TABLE hive_flight (
+  flight_id STRING,
+  name STRING,
+  depart STRING,
+  arrive STRING,
+  dtime STRING,
+  atime STRING,
+  delay STRING
+)
+STORED BY 'org.apache.hadoop.hive.hbase.HBaseStorageHandler'
+WITH SERDEPROPERTIES (
+  "hbase.columns.mapping" = ":key,details:name,details:depart,details:arrive,schedule:dtime,schedule:atime,delay:depart"
+)
+TBLPROPERTIES (
+  "hbase.table.name" = "flight_info"
+);
+
+VIEW A HIVE TABLE
+
+SELECT * FROM hive_flight;
+
+VIEW TABLE COLUMNS 
+
+DESCRIBE hive_flight;
+
+
+D) TOTAL DELAY
+
+SELECT SUM(delay) AS total_delay FROM hive_flight;
+
+
+E) AVG DELAY
+
+SELECT AVG(delay) AS avg_delay FROM hive_flight;
+
+F) ADD INDEX ON THE COLUMN 'flight_id'
+
+1. CREATE INDEX idx_flight_id ON TABLE hive_flight (flight_id) AS 'COMPACT' WITH DEFERRED REBUILD;
+
+2. ALTER INDEX idx ON hive_flight REBUILD;
+
+3. SHOW INDEXES ON hive_flight;
+
